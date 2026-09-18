@@ -1,7 +1,23 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
 
-app = FastAPI(title="StoryShift Backend")
+from database.database import Base, engine
+from database import models
+
+from routes.movie import router as movie_router
+from routes.novel import router as novel_router
+from routes.scene import router as scene_router
+from routes.perspective import router as perspective_router
+from routes.story import router as story_router
+from routes.session import router as session_router
+
+
+app = FastAPI(
+    title="StoryShift API",
+    description="Backend for the StoryShift interactive storytelling platform",
+    version="1.0.0"
+)
+
+Base.metadata.create_all(bind=engine)
 
 
 @app.get("/")
@@ -11,47 +27,19 @@ def home():
     }
 
 
-class MovieRequest(BaseModel):
-    movie_name: str
+# Movie routes
+app.include_router(movie_router)
 
+# Novel routes
+app.include_router(novel_router)
 
-@app.post("/movie")
-def receive_movie(request: MovieRequest):
-    return {
-        "movie": request.movie_name,
-        "message": "Movie received successfully!"
-    }
+# Scene routes
+app.include_router(scene_router)
 
+# Perspective switching routes
+app.include_router(perspective_router)
 
-class NovelRequest(BaseModel):
-    novel_name: str
+# Story continuation routes
+app.include_router(story_router)
 
-
-@app.post("/novel")
-def receive_novel(request: NovelRequest):
-    return {
-        "novel": request.novel_name,
-        "message": "Novel received successfully!"
-    }
-
-
-@app.get("/scene/{scene_id}")
-def get_scene(scene_id: int):
-    return {
-        "scene_id": scene_id,
-        "scene": "This is a sample scene."
-    }
-
-
-class PerspectiveRequest(BaseModel):
-    scene_id: int
-    character: str
-
-
-@app.post("/perspective")
-def get_perspective(request: PerspectiveRequest):
-    return {
-        "scene_id": request.scene_id,
-        "character": request.character,
-        "perspective": "This is a sample character perspective."
-    }
+app.include_router(session_router)
