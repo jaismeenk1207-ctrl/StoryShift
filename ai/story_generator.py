@@ -6,7 +6,10 @@ from google import genai
 from ai.prompts import build_continuation_prompt
 
 
-load_dotenv()
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT_DIR / ".env")
 
 client = genai.Client(
     api_key=os.getenv("GEMINI_API_KEY")

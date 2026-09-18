@@ -1,297 +1,497 @@
-import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+// frontend/src/pages/Reader.jsx
+
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import stories from "../data/stories";
 
-function Reader() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+const API = "/api";
 
-  const storyId = Number(searchParams.get("story"));
-  const movieName = searchParams.get("movie");
+export default function Reader() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const params = new URLSearchParams(location.search);
+  const storyId = params.get("storyId") || "1";
 
   const story =
-    stories.find((item) => item.id === storyId) || stories[0];
+    stories.find((item) => String(item.id) === String(storyId)) ||
+    stories[0];
 
-  const [currentPOV, setCurrentPOV] = useState(
-  movieName ? "Cobb" : "Arjun"
-);
-  const isMovie = Boolean(movieName);
-  const [isSwitching, setIsSwitching] = useState(false);
-  const [chapter, setChapter] = useState(0);
+  const [characters, setCharacters] = useState([]);
+  const [scenes, setScenes] = useState([]);
 
-  const characters = isMovie
-  ? {
-      Cobb: {
-        name: "Cobb",
-        role: "The Extractor",
-        emoji: "🧠",
-      },
+  const [selectedCharacter, setSelectedCharacter] = useState("");
+  const [branchId, setBranchId] = useState(null);
 
-      Arthur: {
-        name: "Arthur",
-        role: "The Point Man",
-        emoji: "🎩",
-      },
+  const [currentChapter, setCurrentChapter] = useState(1);
+  const [generatedChapters, setGeneratedChapters] = useState([]);
 
-      Mal: {
-        name: "Mal",
-        role: "The Projection",
-        emoji: "🌀",
-      },
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState("");
+
+  const selectedCharacterData = useMemo(
+    () =>
+      characters.find(
+        (character) => character.name === selectedCharacter
+      ),
+    [characters, selectedCharacter]
+  );
+
+  useEffect(() => {
+    async function loadStory() {
+      try {
+        setLoading(true);
+        setError("");
+
+        setCharacters([]);
+        setScenes([]);
+        setSelectedCharacter("");
+        setBranchId(null);
+        setCurrentChapter(1);
+        setGeneratedChapters([]);
+
+        const [charactersResponse, scenesResponse] =
+          await Promise.all([
+            fetch(`${API}/story/${storyId}/characters`),
+            fetch(`${API}/story/${storyId}/scenes`),
+          ]);
+
+        if (!charactersResponse.ok || !scenesResponse.ok) {
+          throw new Error("Failed to load story");
+        }
+
+        const charactersData = await charactersResponse.json();
+        const scenesData = await scenesResponse.json();
+
+        setCharacters(charactersData);
+        setScenes(scenesData);
+
+        if (charactersData.length > 0) {
+          setSelectedCharacter(charactersData[0].name);
+        }
+      } catch (err) {
+        console.error(err);
+        setError(
+          "Could not load this story. Make sure the backend is running."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
-  : {
-      Arjun: {
-        name: "Arjun",
-        role: "Protagonist",
-        emoji: "👤",
-      },
 
-      Victor: {
-        name: "Victor",
-        role: "Antagonist",
-        emoji: "🦹",
-      },
+    loadStory();
+  }, [storyId]);
 
-      Maya: {
-        name: "Maya",
-        role: "Observer",
-        emoji: "👩",
-      },
-    };
+  async function changePerspective(characterName) {
+    if (switching || generating) return;
 
-  const currentCharacter = characters[currentPOV];
-
-  const storyContent = isMovie
-  ? {
-      Cobb: [
-  [
-    "Cobb opened his eyes and found himself standing in a hotel room that felt strangely familiar.",
-    "Across the room, Arthur watched him carefully. Cobb knew this wasn't reality, but the details were convincing enough to make doubt dangerous.",
-    '"How did we get here?" Cobb asked.',
-    "He looked around the room, searching for the small imperfections that would reveal the dream. Somewhere beneath the perfect illusion, his memories were waiting.",
-  ],
-  [
-    "Cobb moved toward the window and looked down at the impossible city below.",
-    "The streets twisted in ways that no real city could. He felt the familiar pressure of a dream beginning to collapse around him.",
-    "Arthur called his name from behind, but Cobb barely heard him.",
-    "There was something hidden inside this dream, and Cobb was beginning to remember why he had come looking for it.",
-  ],
-],
-
-      Arthur: [
-  [
-    "Arthur watched Cobb examine the room. He had seen that expression before — the look Cobb wore whenever reality became difficult to separate from memory.",
-    "Everything around them appeared perfectly ordinary, but Arthur knew better. The room had been constructed, layer by layer, to feel real.",
-    '"How did we get here?" Cobb asked.',
-    "Arthur kept his answer to himself. Cobb was already beginning to question the dream, and that meant they were running out of time.",
-  ],
-  [
-    "Arthur followed Cobb toward the window, carefully studying the shifting streets below.",
-    "He knew the dream was becoming unstable, but Cobb seemed more interested in the strange details than in escaping.",
-    "Arthur checked the time and felt a growing sense of urgency.",
-    "If the dream collapsed before they found what they were looking for, neither of them would get a second chance.",
-  ],
-],
-
-      Mal: [
-  [
-    "Mal stood silently at the edge of the room, watching Cobb search for an escape.",
-    "To Cobb, she was a memory. To Mal, however, the world around them felt completely real.",
-    '"How did we get here?" Cobb asked.',
-    "Mal smiled faintly. Cobb believed he was searching for reality, but she knew the deeper truth: sometimes the mind creates a world it would rather never leave.",
-  ],
-  [
-    "Mal watched as the city outside began to bend and reshape itself.",
-    "Cobb still believed he could control the dream, but Mal could see the cracks spreading through his carefully constructed reality.",
-    "She stepped closer to him, carrying memories that Cobb had spent years trying to bury.",
-    "For Mal, this wasn't simply another dream. It was a world where the past could still reach him.",
-  ],
-],
+    if (characterName === selectedCharacter && branchId) {
+      return;
     }
-  : {
-      Arjun: [
-        "Arjun stepped into the room, his eyes immediately falling on Victor.",
-        "Something about the way Victor stood near the window made him uneasy.",
-        '"You shouldn\'t have come," Victor said.',
-        "Arjun felt a strange knot forming in his chest. He knew Victor was hiding something.",
-      ],
 
-      Victor: [
-        "Victor watched Arjun step through the doorway.",
-        "His heart sank. Arjun was here far earlier than he had expected.",
-        '"You shouldn\'t have come," Victor said, hoping his voice would not betray him.',
-        "Victor knew the truth about the house. Arjun knew nothing yet, and Victor intended to keep it that way.",
-      ],
+    try {
+      setSwitching(true);
+      setError("");
 
-      Maya: [
-        "Maya stood quietly at the end of the hallway, watching the two men.",
-        "She could see the tension between them, even though neither wanted to acknowledge it.",
-        "Victor was afraid. Arjun was suspicious.",
-        "But Maya knew something neither of them did: the real secret was not inside the house.",
-      ],
-    };
+      setSelectedCharacter(characterName);
 
-  const switchPerspective = (character) => {
-  if (character === currentPOV) return;
+      const sceneNumber =
+        currentChapter > 1 ? currentChapter : 1;
 
-  setIsSwitching(true);
+      const response = await fetch(`${API}/perspective`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          story_id: Number(storyId),
+          scene_id: sceneNumber,
+          character: characterName,
+        }),
+      });
 
-  setTimeout(() => {
-    setCurrentPOV(character);
-    setIsSwitching(false);
-  }, 500);
-};
+      if (!response.ok) {
+        throw new Error("Perspective switch failed");
+      }
+
+      const data = await response.json();
+
+      setBranchId(data.branch_id);
+    } catch (err) {
+      console.error(err);
+      setError("Could not switch perspective.");
+    } finally {
+      setSwitching(false);
+    }
+  }
+
+  async function continueStory() {
+    if (generating || switching) return;
+
+    try {
+      setGenerating(true);
+      setError("");
+
+      let url = `${API}/story/${storyId}/continue`;
+
+      if (branchId) {
+        url += `?branch_id=${branchId}`;
+      }
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error("Generation failed");
+      }
+
+      const data = await response.json();
+
+      const nextChapter = currentChapter + 1;
+
+      setBranchId(data.branch_id);
+      setCurrentChapter(nextChapter);
+
+      setGeneratedChapters((previous) => [
+        ...previous,
+        {
+          chapter: nextChapter,
+          character: data.character || selectedCharacter,
+          text: data.continuation || "",
+        },
+      ]);
+    } catch (err) {
+      console.error(err);
+      setError(
+        "The next chapter could not be generated. Please check the backend and Gemini connection."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function renderParagraphs(text) {
+    if (!text) return null;
+
+    return text
+      .split(/\n\s*\n/)
+      .filter((paragraph) => paragraph.trim())
+      .map((paragraph, index) => (
+        <p key={index}>{paragraph.trim()}</p>
+      ));
+  }
 
   return (
-    <div className="reader-page">
+    <div className="pov-page">
 
-      {/* TOP BAR */}
+      {/* TOP NAV */}
 
-      <div className="reader-topbar">
-
+      <header className="pov-nav">
         <button
-          className="back-button"
+          className="pov-library-button"
           onClick={() => navigate("/novels")}
         >
-          ← Back to Library
+          <span>←</span>
+          Library
         </button>
 
-        <div className="reader-story-name">
-        {movieName || story.title}
+        <div className="pov-logo">
+          POV<span>VERSE</span>
         </div>
 
-      </div>
-
-
-      {/* READER */}
-
-      <main className="reader-content">
-
-        <div className="chapter-label">
-         CHAPTER {String(chapter+1).padStart(2, "0")}
+        <div className="pov-nav-right">
+          <span className="live-dot"></span>
+          Interactive Story
         </div>
+      </header>
 
-        <h1>{movieName ? `${movieName} — A Novel` : "The Revelation"}</h1>
-
-        <div className="current-pov">
-
-          <span>
-            {currentCharacter.emoji}
-          </span>
-
-          <div>
-            <p>CURRENT PERSPECTIVE</p>
-
-            <strong>
-              {currentCharacter.name}
-            </strong>
-
-            <small>
-              {currentCharacter.role}
-            </small>
+      {loading ? (
+        <div className="pov-loading">
+          <div className="loading-ring">
+            <span>✦</span>
           </div>
 
+          <h2>Entering the story...</h2>
+          <p>Preparing your world of perspectives.</p>
         </div>
+      ) : (
+        <div className="pov-shell">
 
+          {/* =========================================
+              MAIN READER
+          ========================================= */}
 
-        {/* STORY */}
+          <main className="pov-reading">
 
-        <article
-        className={
-         isSwitching
-        ? "story-text pov-switching"
-        : "story-text"
-        }
->
+            <div className="pov-book-header">
 
-          {storyContent[currentPOV][chapter].map(
-  (paragraph, index) => (
-    <p key={index}>
-      {paragraph}
-    </p>
-  )
-)}
+              <div className="book-kicker">
+                {story.genre}
+              </div>
 
-        </article>
+              <h1>{story.title}</h1>
 
-
-        {/* POV SWITCHER */}
-
-        <section className="perspective-section">
-
-          <div className="perspective-heading">
-
-            <span>✦</span>
-
-            <div>
-
-              <p>CHANGE YOUR PERSPECTIVE</p>
-
-              <h2>
-                Continue the story through their eyes.
-              </h2>
+              <div className="book-author">
+                {story.author}
+              </div>
 
             </div>
 
-          </div>
+            {/* CHAPTER 1 */}
 
+            <section className="chapter-block">
 
-          <div className="character-switcher">
+              <div className="chapter-topline">
+                <span>CHAPTER 01</span>
+                <div className="chapter-rule"></div>
+              </div>
 
-            {Object.entries(characters).map(
-              ([key, character]) => (
+              <h2>First Impressions</h2>
 
-                <button
-                  key={key}
-                  className={
-                    currentPOV === key
-                      ? "character-button active"
-                      : "character-button"
-                  }
-                  onClick={() =>
-                    switchPerspective(key)
-                  }
-                >
+              <div className="pov-under-chapter">
+                <span className="pov-spark">✦</span>
 
+                <span>POV</span>
+
+                <strong>
+                  {selectedCharacter || "Choose a character"}
+                </strong>
+              </div>
+
+              <article className="chapter-text">
+                {scenes.length > 0 ? (
+                  scenes.map((scene) => (
+                    <div key={scene.id}>
+                      {renderParagraphs(scene.content)}
+                    </div>
+                  ))
+                ) : (
+                  <p className="empty-text">
+                    The story is waiting to begin...
+                  </p>
+                )}
+              </article>
+
+            </section>
+
+            {/* GENERATED CHAPTERS */}
+
+            {generatedChapters.map((chapter) => (
+              <section
+                className="chapter-block generated-chapter"
+                key={`${chapter.chapter}-${chapter.character}`}
+              >
+
+                <div className="chapter-topline">
                   <span>
-                    {character.emoji}
+                    CHAPTER{" "}
+                    {String(chapter.chapter).padStart(2, "0")}
                   </span>
 
-                  <div>
+                  <div className="chapter-rule"></div>
+                </div>
 
-                    <strong>
-                      {character.name}
-                    </strong>
+                <h2>
+                  {chapter.character}'s Story
+                </h2>
 
-                    <small>
-                      {character.role}
-                    </small>
+                <div className="pov-under-chapter generated-pov">
+                  <span className="pov-spark">✦</span>
 
-                  </div>
+                  <span>POV</span>
 
-                </button>
+                  <strong>{chapter.character}</strong>
+                </div>
 
-              )
+                <article className="chapter-text">
+                  {renderParagraphs(chapter.text)}
+                </article>
+
+              </section>
+            ))}
+
+            {/* ERROR */}
+
+            {error && (
+              <div className="pov-error">
+                <span>⚠</span>
+                {error}
+              </div>
             )}
 
-          </div>
+            {/* CONTINUE */}
 
-        </section>
+            <div className="next-chapter-area">
 
+              <div className="next-chapter-decoration">
+                <span></span>
+                <i>✦</i>
+                <span></span>
+              </div>
 
-        {/* CONTINUE */}
+              <button
+                className="next-chapter-button"
+                onClick={continueStory}
+                disabled={generating || switching}
+              >
+                {generating ? (
+                  <>
+                    <span className="button-spinner"></span>
+                    Writing Chapter{" "}
+                    {String(currentChapter + 1).padStart(2, "0")}
+                    ...
+                  </>
+                ) : (
+                  <>
+                    Continue to Chapter{" "}
+                    {String(currentChapter + 1).padStart(2, "0")}
+                    <span>→</span>
+                  </>
+                )}
+              </button>
 
-        <button
-  className="continue-button"
-  onClick={() => setChapter((prev) => prev + 1)}
->
-  Continue Story →
-</button>
+              <p className="next-chapter-caption">
+                The next chapter unfolds through{" "}
+                <strong>
+                  {selectedCharacter || "your chosen character"}
+                </strong>
+                's eyes.
+              </p>
 
-      </main>
+            </div>
 
+          </main>
+
+          {/* =========================================
+              PERSPECTIVE EXPERIENCE
+          ========================================= */}
+
+          <aside className="pov-panel">
+
+            <div className="pov-panel-header">
+
+              <div className="orbit-icon">
+                <span>✦</span>
+              </div>
+
+              <div>
+                <div className="panel-eyebrow">
+                  CHANGE THE STORY
+                </div>
+
+                <h2>Choose your POV</h2>
+              </div>
+
+            </div>
+
+            <p className="panel-intro">
+              Every character sees a different story.
+              Pick one and keep reading through their
+              eyes.
+            </p>
+
+            <div className="character-cards">
+
+              {characters.map((character, index) => {
+
+                const active =
+                  selectedCharacter === character.name;
+
+                return (
+                  <button
+                    key={character.id}
+                    className={
+                      active
+                        ? "pov-character active"
+                        : "pov-character"
+                    }
+                    onClick={() =>
+                      changePerspective(character.name)
+                    }
+                    disabled={switching || generating}
+                  >
+
+                    <div className="character-number">
+                      0{index + 1}
+                    </div>
+
+                    <div
+                      className={
+                        active
+                          ? "character-face active-face"
+                          : "character-face"
+                      }
+                    >
+                      {character.name
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+
+                    <div className="character-copy">
+
+                      <strong>{character.name}</strong>
+
+                      <span>
+                        {character.description ||
+                          "A character in this story."}
+                      </span>
+
+                    </div>
+
+                    <div className="character-arrow">
+                      {active ? "✓" : "↗"}
+                    </div>
+
+                  </button>
+                );
+              })}
+
+            </div>
+
+            {/* CURRENT POV */}
+
+            {selectedCharacterData && (
+              <div className="current-pov-card">
+
+                <div className="current-pov-label">
+                  YOU ARE READING AS
+                </div>
+
+                <div className="current-pov-name">
+                  {selectedCharacter}
+                </div>
+
+                <div className="current-pov-status">
+                  <span></span>
+                  Perspective active
+                </div>
+
+              </div>
+            )}
+
+            {/* FUN FEATURE */}
+
+            <div className="perspective-tip">
+
+              <div className="tip-icon">◈</div>
+
+              <div>
+                <strong>See it differently.</strong>
+
+                <p>
+                  Switch POV whenever you want.
+                  Your next chapter follows the
+                  character you choose.
+                </p>
+              </div>
+
+            </div>
+
+          </aside>
+
+        </div>
+      )}
     </div>
   );
 }
-
-export default Reader;

@@ -1,25 +1,18 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import Home from "./pages/Home";
-import NovelLibrary from "./pages/NovelLibrary";
 import MovieInput from "./pages/MovieInput";
+import NovelLibrary from "./pages/NovelLibrary";
 import Reader from "./pages/Reader";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-
-        <Route path="/" element={<Home />} />
-
-        <Route path="/novels" element={<NovelLibrary />} />
-
-        <Route path="/movie" element={<MovieInput />} />
-        
-        <Route path="/read" element={<Reader />} />
-
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/movie" element={<MovieInput />} />
+      <Route path="/novels" element={<NovelLibrary />} />
+      <Route path="/reader" element={<Reader />} />
+    </Routes>
   );
 }
 
