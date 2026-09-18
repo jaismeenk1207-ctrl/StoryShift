@@ -15,19 +15,21 @@ def switch_perspective(
     db: Session = Depends(get_db)
 ):
     branch = StoryBranch(
-        story_id=request.story_id,
-        starting_scene=request.scene_id,
-        character=request.character
-    )
+    story_id=request.story_id,
+    starting_scene=request.scene_id,
+    current_scene=request.scene_id,
+    character=request.character
+)
 
     db.add(branch)
     db.commit()
     db.refresh(branch)
 
     return {
-        "branch_id": branch.id,
+         "branch_id": branch.id,
         "story_id": branch.story_id,
         "starting_scene": branch.starting_scene,
+        "current_scene": branch.current_scene,
         "character": branch.character,
         "message": "Perspective branch created successfully."
     }

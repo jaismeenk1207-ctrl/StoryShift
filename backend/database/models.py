@@ -36,8 +36,8 @@ class StoryBranch(Base):
     id = Column(Integer, primary_key=True, index=True)
     story_id = Column(Integer, nullable=False)
     starting_scene = Column(Integer, nullable=False)
+    current_scene = Column(Integer, nullable=False)
     character = Column(String, nullable=False)
-
 
 class ReadingSession(Base):
     __tablename__ = "reading_sessions"
