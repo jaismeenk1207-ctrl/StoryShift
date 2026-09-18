@@ -51,7 +51,7 @@ function NovelLibrary() {
                 {story.description}
               </p>
 
-              <button onClick={() => navigate(`/reader?storyId=${story.id}`)}>
+              <button onClick={() => navigate(`/read?story=${story.id}`)}>
                 Read Story →
             </button>
 

@@ -38,7 +38,6 @@ class StoryBranch(Base):
     starting_scene = Column(Integer, nullable=False)
     current_scene = Column(Integer, nullable=False)
     character = Column(String, nullable=False)
-    generated_story = Column(Text, nullable=True)
 
 class ReadingSession(Base):
     __tablename__ = "reading_sessions"
